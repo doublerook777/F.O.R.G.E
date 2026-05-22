@@ -31,7 +31,7 @@ class ForgeIsolationForest:
     def __init__(
         self,
         n_estimators:    int   = 120,
-        contamination:   float = 0.05,   # Expected anomaly rate (~5%)
+        contamination:   float = 0.01,   # Expected anomaly rate (~1% for tight normal boundary)
         max_features:    float = 0.85,   # Feature subsampling for diversity
         random_state:    int   = 42,
     ):
@@ -87,27 +87,33 @@ class ForgeIsolationForest:
 
     def _normalize_score(self, raw_score: float) -> float:
         """
-        Map the raw decision function output to [0, 100] Risk Score.
-
-        Uses calibrated min/max for consistent range regardless of feature scale.
-        High raw_score (normal) → low Risk Score
-        Low raw_score (anomaly) → high Risk Score
+        Map the raw decision function output to [0, 100] Risk Score using a progressive
+        distance-based mapping.
+        
+        This prevents false alert spikes under normal conditions while climbing
+        proportionally for true anomalies.
         """
         if self._score_min is None or self._score_max is None:
             return 0.0
 
-        # Invert and normalize: anomalous = high score
         score_range = self._score_max - self._score_min
         if score_range < 1e-8:
             return 0.0
 
-        # Clamp raw score to calibrated range
-        clamped = max(self._score_min, min(self._score_max, raw_score))
-        # Normalize 0→1 (1 = very normal, 0 = very anomalous)
-        normalized = (clamped - self._score_min) / score_range
-        # Invert so 1.0 = max risk
-        risk_fraction = 1.0 - normalized
-        # Apply mild sigmoid-like sharpening to spread the middle
+        if raw_score >= self._score_max:
+            risk_fraction = 0.0
+        elif raw_score >= self._score_min:
+            # Normal zone: scale smoothly from 0.0 to 0.15
+            normalized = (raw_score - self._score_min) / score_range
+            risk_fraction = 0.15 * (1.0 - normalized)
+        else:
+            # Anomaly zone: scale from 0.15 to 1.0 based on distance from score_min
+            # An anomaly range slightly smaller than normal score range is highly decisive
+            anomaly_range = 0.8 * score_range
+            distance = self._score_min - raw_score
+            risk_fraction = 0.15 + 0.85 * min(1.0, distance / anomaly_range)
+
+        # Apply mild sharpening to give the scores a premium, decisive feel
         risk_fraction = self._sharpen(risk_fraction)
 
         return round(float(np.clip(risk_fraction * 100.0, 0.0, 100.0)), 2)
@@ -115,15 +121,16 @@ class ForgeIsolationForest:
     @staticmethod
     def _sharpen(x: float) -> float:
         """
-        Mild power curve to make scores more decisive:
-        - Pushes normal readings toward 0
-        - Pushes anomalies toward 100
-        Uses x^0.7 (sub-linear) for normal zone, x^1.3 (super-linear) for anomaly zone.
+        Refined power curve to make risk scores premium and decisive:
+        - For normal zone (x < 0.5): shrinks values using x^1.5 (super-linear)
+          to keep nominal operation risk extremely low and prevent false alerts.
+        - For anomaly zone (x >= 0.5): expands values using x^1.8
+          to ensure decisive, strong alert signaling.
         """
         if x < 0.5:
-            return 0.5 * (2 * x) ** 0.7
+            return 0.5 * (2 * x) ** 1.5
         else:
-            return 1.0 - 0.5 * (2 * (1 - x)) ** 0.7
+            return 1.0 - 0.5 * (2 * (1 - x)) ** 1.8
 
     @property
     def is_trained(self) -> bool:

@@ -11,8 +11,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { createSSEConnection } from '../services/stream'
 import useTelemetryStore from '../state/telemetryStore'
-import useAlertStore from '../state/alertStore'
-
 // Risk score change threshold to trigger a Zustand update (avoid 10Hz re-renders)
 const RISK_UPDATE_THRESHOLD = 2.0   // Only update store if risk changes by ≥2%
 
@@ -47,8 +45,6 @@ export function useSSEStream(machineId) {
 
   const setConnectionStatus = useTelemetryStore((s) => s.setConnectionStatus)
   const setRiskScore        = useTelemetryStore((s) => s.setRiskScore)
-  const addAlert            = useAlertStore((s) => s.addAlert)
-  const incrementUnread     = useAlertStore((s) => s.incrementUnread)
 
   const handleMessage = useCallback((data) => {
     // ── HOT PATH: Direct ref write — zero React overhead ──────────────

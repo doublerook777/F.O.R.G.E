@@ -18,6 +18,7 @@ export default function Login() {
   const [form, setForm]       = useState({ username: '', password: '' })
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusedInput, setFocusedInput] = useState(null)
 
   // Redirect if already logged in
   useEffect(() => {
@@ -48,131 +49,142 @@ export default function Login() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: 'var(--bg-primary)' }}
-    >
-      {/* Background grid decoration */}
-      <div className="absolute inset-0 opacity-20" style={{
-        backgroundImage: `
-          linear-gradient(rgba(59,130,246,0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(59,130,246,0.1) 1px, transparent 1px)
-        `,
-        backgroundSize: '40px 40px',
-      }} />
-
-      {/* Glow orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-10"
-        style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)', filter: 'blur(40px)' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-10"
-        style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)', filter: 'blur(40px)' }} />
-
-      <div className="relative w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 glow-blue"
-            style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0e7490 100%)' }}>
-            <Activity className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex bg-[#202124] overflow-hidden">
+      
+      {/* ── Left Side: Brand & Visuals (Hidden on Mobile) ── */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 border-r border-[#3c4043] z-10 select-none">
+        {/* Flat dark background */}
+        <div className="absolute inset-0 bg-[#202124] z-0" />
+        
+        {/* Animated glowing orbs (subtle, clean blur) */}
+        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-[rgba(138,180,248,0.06)] rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[rgba(129,201,149,0.06)] rounded-full blur-[120px] pointer-events-none mix-blend-screen" />
+        
+        <div className="relative z-10">
+          <div 
+            className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-6 shadow-md"
+            style={{ background: 'linear-gradient(135deg, #3870e0 0%, #1e4eb8 100%)' }}
+          >
+            <Activity className="w-6 h-6 text-[#e8eaed]" />
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-white">F.O.R.G.E</h1>
-          <p className="text-xs font-mono text-slate-500 mt-1 tracking-widest">
-            FAULT OBSERVATION & REAL-TIME GATEWAY ENGINE
+          <h1 className="text-5xl font-black tracking-tight text-[#e8eaed] mb-4">
+            F.O.R.G.E
+          </h1>
+          <p className="text-base text-[#9aa0a6] max-w-md leading-relaxed font-medium">
+            Industrial intelligence elevated. Real-time digital twins and machine learning analytics combined to safeguard critical mechanical infrastructure.
           </p>
         </div>
 
-        {/* Login card */}
-        <div className="glass-bright rounded-2xl p-8">
-          <h2 className="text-lg font-bold text-slate-200 mb-6">Operator Authentication</h2>
+        <div className="relative z-10 flex items-center gap-4 text-xs font-mono text-[#9aa0a6]">
+          <span className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#81c995] animate-pulse" />
+            DIAGNOSTICS OPERATIONAL
+          </span>
+          <span className="text-[#3c4043]">|</span>
+          <span>v1.0.0</span>
+        </div>
+      </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold font-mono text-slate-400 tracking-widest">
-                USERNAME
-              </label>
-              <input
-                id="username-input"
-                type="text"
-                autoComplete="username"
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                placeholder="operator / engineer / admin"
-                className="px-4 py-3 rounded-xl font-mono text-sm text-slate-200
-                           border border-slate-700 bg-slate-800/60
-                           focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40
-                           placeholder:text-slate-600 transition-all"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold font-mono text-slate-400 tracking-widest">
-                PASSWORD
-              </label>
-              <input
-                id="password-input"
-                type="password"
-                autoComplete="current-password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="••••••••••"
-                className="px-4 py-3 rounded-xl font-mono text-sm text-slate-200
-                           border border-slate-700 bg-slate-800/60
-                           focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40
-                           placeholder:text-slate-600 transition-all"
-              />
-            </div>
-
-            {error && (
-              <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-mono">
-                ⚠ {error}
-              </div>
-            )}
-
-            <button
-              id="login-submit-btn"
-              type="submit"
-              disabled={loading}
-              className="mt-2 py-3 rounded-xl font-bold text-sm tracking-wider text-white
-                         transition-all duration-200 disabled:opacity-50
-                         hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                background: loading
-                  ? '#1e40af'
-                  : 'linear-gradient(135deg, #1d4ed8 0%, #0e7490 100%)',
-                boxShadow: '0 0 20px rgba(59,130,246,0.3)',
-              }}
+      {/* ── Right Side: Authentication Panel ── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
+        <div className="w-full max-w-md relative z-10 animate-fade-up">
+          
+          {/* Mobile-only Logo */}
+          <div className="lg:hidden text-center mb-8">
+            <div 
+              className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 shadow-md"
+              style={{ background: 'linear-gradient(135deg, #3870e0 0%, #1e4eb8 100%)' }}
             >
-              {loading ? 'AUTHENTICATING...' : 'AUTHENTICATE →'}
-            </button>
-          </form>
+              <Activity className="w-7 h-7 text-[#e8eaed]" />
+            </div>
+            <h1 className="text-4xl font-black tracking-tight text-[#e8eaed]">F.O.R.G.E</h1>
+          </div>
 
-          {/* Quick-fill demo credentials */}
-          <div className="mt-6 pt-5 border-t border-slate-700/40">
-            <p className="text-xs text-slate-600 font-mono mb-3 text-center">DEMO CREDENTIALS</p>
-            <div className="flex gap-2">
-              {[
-                { label: 'Engineer', u: 'engineer', p: 'engineer123' },
-                { label: 'Operator', u: 'operator', p: 'operator123' },
-                { label: 'Admin',    u: 'admin',    p: 'admin123'    },
-              ].map(({ label, u, p }) => (
-                <button
-                  key={u}
-                  id={`quick-login-${u}`}
-                  onClick={() => quickLogin(u, p)}
-                  className="flex-1 py-1.5 text-xs font-mono rounded-lg
-                             border border-slate-700 text-slate-500
-                             hover:border-blue-500/50 hover:text-blue-400
-                             transition-all duration-200"
-                >
-                  {label}
-                </button>
-              ))}
+          <div className="bg-[#303134] rounded-3xl p-8 shadow-xl border border-[#3c4043] select-none">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-[#e8eaed] tracking-tight mb-1.5">Welcome</h2>
+              <p className="text-xs text-[#9aa0a6] font-bold tracking-wider uppercase">AUTHENTICATION PORTAL</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {/* Username Input */}
+              <div className={`relative rounded-xl border transition-all duration-300 ${focusedInput === 'username' ? 'border-[#8ab4f8] bg-[#202124]' : 'border-[#3c4043] bg-[#202124] hover:border-[#5f6368]'}`}>
+                <label className={`absolute left-4 transition-all duration-200 font-bold text-[9px] tracking-wider ${form.username || focusedInput === 'username' ? 'top-2 text-[#8ab4f8]' : 'top-4 text-[#9aa0a6]'}`}>
+                  USERNAME
+                </label>
+                <input
+                  id="username-input"
+                  type="text"
+                  autoComplete="username"
+                  value={form.username}
+                  onFocus={() => setFocusedInput('username')}
+                  onBlur={() => setFocusedInput(null)}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  className="w-full px-4 pt-6 pb-2 bg-transparent text-[#e8eaed] text-sm focus:outline-none"
+                />
+              </div>
+
+              {/* Password Input */}
+              <div className={`relative rounded-xl border transition-all duration-300 ${focusedInput === 'password' ? 'border-[#8ab4f8] bg-[#202124]' : 'border-[#3c4043] bg-[#202124] hover:border-[#5f6368]'}`}>
+                <label className={`absolute left-4 transition-all duration-200 font-bold text-[9px] tracking-wider ${form.password || focusedInput === 'password' ? 'top-2 text-[#8ab4f8]' : 'top-4 text-[#9aa0a6]'}`}>
+                  PASSWORD
+                </label>
+                <input
+                  id="password-input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={form.password}
+                  onFocus={() => setFocusedInput('password')}
+                  onBlur={() => setFocusedInput(null)}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="w-full px-4 pt-6 pb-2 bg-transparent text-[#e8eaed] text-sm focus:outline-none"
+                />
+              </div>
+
+              {error && (
+                <div className="text-xs px-4 py-3 rounded-xl bg-[rgba(238,103,92,0.08)] border border-[rgba(238,103,92,0.25)] text-[#ee675c] animate-fade-up flex items-center gap-2">
+                  <span className="text-base">⚠</span> {error}
+                </div>
+              )}
+
+              <button
+                id="login-submit-btn"
+                type="submit"
+                disabled={loading}
+                className="ripple mt-3 w-full py-3.5 rounded-xl font-bold text-sm tracking-wider text-[#202124] bg-[#8ab4f8] hover:bg-[#8ab4f8]/95
+                           transition-all duration-300 disabled:opacity-50 cursor-pointer shadow-md"
+              >
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  {loading ? 'VERIFYING CREDENTIALS...' : 'AUTHENTICATE'}
+                </span>
+              </button>
+            </form>
+
+            {/* Quick-fill demo credentials */}
+            <div className="mt-8 pt-6 border-t border-[#3c4043]">
+              <p className="text-[9px] text-[#9aa0a6] mb-4 text-center tracking-wider font-bold uppercase">BYPASS CREDENTIALS (DEMO)</p>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'ENGINEER', u: 'engineer', p: 'engineer123' },
+                  { label: 'OPERATOR', u: 'operator', p: 'operator123' },
+                  { label: 'ADMIN',    u: 'admin',    p: 'admin123'    },
+                ].map(({ label, u, p }) => (
+                  <button
+                    key={u}
+                    id={`quick-login-${u}`}
+                    onClick={() => quickLogin(u, p)}
+                    className="ripple py-2.5 text-[9px] rounded-xl font-bold tracking-wider cursor-pointer
+                               bg-[#202124] border border-[#3c4043] text-[#9aa0a6]
+                               hover:border-[#8ab4f8]/50 hover:bg-[#3c4043] hover:text-[#8ab4f8]
+                               transition-all duration-200"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-
-        <p className="text-center text-xs text-slate-700 mt-6 font-mono">
-          FORGE v1.0 — Phase 1 — Industrial Digital Twin Platform
-        </p>
       </div>
     </div>
   )

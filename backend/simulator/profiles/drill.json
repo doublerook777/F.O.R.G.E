@@ -1,0 +1,39 @@
+{
+  "machine_id": "drill_03",
+  "name": "Heavy Drill Press",
+  "type": "drill_press",
+  "location": "Bay C — Station 1",
+  "rpm": {
+    "baseline": 800,
+    "min": 400,
+    "max": 1200,
+    "oscillation_amplitude": 15,
+    "oscillation_frequency": 0.04,
+    "noise_std": 5.0
+  },
+  "temperature": {
+    "baseline": 45.0,
+    "min": 35.0,
+    "max": 70.0,
+    "oscillation_amplitude": 1.0,
+    "oscillation_frequency": 0.01,
+    "noise_std": 0.2,
+    "drift_rate": 0.0002
+  },
+  "vibration": {
+    "baseline": 1.2,
+    "min": 0.5,
+    "max": 4.0,
+    "oscillation_amplitude": 0.15,
+    "oscillation_frequency": 0.2,
+    "noise_std": 0.08
+  },
+  "current": {
+    "baseline": 6.5,
+    "min": 4.0,
+    "max": 12.0,
+    "oscillation_amplitude": 0.2,
+    "oscillation_frequency": 0.08,
+    "noise_std": 0.05
+  }
+}

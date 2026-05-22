@@ -42,7 +42,7 @@ export function createSSEConnection(machineId, { onMessage, onConnect, onError }
       try {
         const data = JSON.parse(event.data)
         onMessage?.(data)
-      } catch (e) {
+      } catch {
         console.warn('[SSE] Failed to parse event data:', event.data)
       }
     }

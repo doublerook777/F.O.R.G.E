@@ -1,0 +1,39 @@
+{
+  "machine_id": "conveyor_04",
+  "name": "Main Conveyor Belt",
+  "type": "conveyor",
+  "location": "Assembly Line 1",
+  "rpm": {
+    "baseline": 70.0,
+    "min": 40,
+    "max": 100,
+    "oscillation_amplitude": 2,
+    "oscillation_frequency": 0.02,
+    "noise_std": 0.5
+  },
+  "temperature": {
+    "baseline": 42.0,
+    "min": 30.0,
+    "max": 60.0,
+    "oscillation_amplitude": 0.5,
+    "oscillation_frequency": 0.005,
+    "noise_std": 0.1,
+    "drift_rate": 0.0001
+  },
+  "vibration": {
+    "baseline": 0.40,
+    "min": 0.1,
+    "max": 2.5,
+    "oscillation_amplitude": 0.05,
+    "oscillation_frequency": 0.05,
+    "noise_std": 0.02
+  },
+  "current": {
+    "baseline": 15.0,
+    "min": 10.0,
+    "max": 25.0,
+    "oscillation_amplitude": 0.8,
+    "oscillation_frequency": 0.03,
+    "noise_std": 0.2
+  }
+}

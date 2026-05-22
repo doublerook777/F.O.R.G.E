@@ -10,8 +10,7 @@ import { machinesAPI } from '../services/api'
 import RiskGauge from '../components/RiskGauge'
 import AIAlertLog from '../components/AIAlertLog'
 import MachineCard from '../components/MachineCard'
-import ProfileMenu from '../components/ProfileMenu'
-import { Activity } from 'lucide-react'
+import Header from '../components/Header'
 
 function OperatorMachinePanel({ machineId }) {
   const { dataRef } = useSSEStream(machineId)
@@ -36,9 +35,13 @@ function OperatorMachinePanel({ machineId }) {
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-6">
-        <RiskGauge score={riskScore} machineId={machineId} />
-        <MachineCard dataRef={dataRef} machineId={machineId} />
+      <div className="flex items-center gap-6 w-full">
+        <div className="shrink-0">
+          <RiskGauge score={riskScore} machineId={machineId} />
+        </div>
+        <div className="flex-1">
+          <MachineCard dataRef={dataRef} machineId={machineId} />
+        </div>
       </div>
     </div>
   )
@@ -46,7 +49,7 @@ function OperatorMachinePanel({ machineId }) {
 
 export default function OperatorDashboard() {
   const navigate    = useNavigate()
-  const { user, logout, token } = useAuthStore()
+  const { token } = useAuthStore()
   const machines    = useTelemetryStore((s) => s.machines)
   const setMachines = useTelemetryStore((s) => s.setMachines)
 
@@ -59,43 +62,26 @@ export default function OperatorDashboard() {
   }, [setMachines])
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      <header className="glass border-b border-slate-800/60 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8, #0e7490)' }}>
-              <Activity className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight text-white">F.O.R.G.E</h1>
-              <p className="text-xs font-mono text-slate-600" style={{ fontSize: 9 }}>OPERATOR VIEW</p>
-            </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-1 pl-6 border-l border-slate-800/60">
-            <button onClick={() => navigate('/components')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">COMPONENTS</button>
-            <button onClick={() => navigate('/engineer')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">ENGINEER</button>
-            <button onClick={() => navigate('/operator')} className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 font-mono text-xs font-bold border border-blue-500/20">OPERATOR</button>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <ProfileMenu />
-        </div>
-      </header>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+      <Header />
 
-      <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          {machines.map((m) => (
-            <OperatorMachinePanel key={m.machine_id} machineId={m.machine_id} />
-          ))}
-          {machines.length === 0 && (
-            <div className="glass rounded-2xl p-8 text-center text-slate-600 font-mono text-sm">
-              Connecting to FORGE backend...
-            </div>
-          )}
-        </div>
-        <div>
-          <AIAlertLog />
+      <main className="flex-1 p-3 flex flex-col min-h-0">
+        <div className="max-w-[1800px] mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0 h-full">
+          <div className="lg:col-span-2 flex flex-col gap-3 h-full overflow-y-auto min-h-0 pr-1">
+            {machines.map((m) => (
+              <div key={m.machine_id} className="shrink-0">
+                <OperatorMachinePanel machineId={m.machine_id} />
+              </div>
+            ))}
+            {machines.length === 0 && (
+              <div className="glass rounded-2xl p-8 text-center text-slate-600 font-mono text-sm shrink-0">
+                Connecting to FORGE backend...
+              </div>
+            )}
+          </div>
+          <div className="lg:col-span-1 flex flex-col h-full min-h-0">
+            <AIAlertLog />
+          </div>
         </div>
       </main>
     </div>

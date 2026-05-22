@@ -29,6 +29,14 @@ const useTelemetryStore = create((set) => ({
   // Available fault types from /api/faults
   faultTypes: [],
   setFaultTypes: (faults) => set({ faultTypes: faults }),
+
+  // Fault repair timestamps to sync chart resets and immediate UI drop
+  lastClearedAt: {},
+  clearFaultSuccess: (machineId) =>
+    set((state) => ({
+      lastClearedAt: { ...state.lastClearedAt, [machineId]: Date.now() },
+      riskScores: { ...state.riskScores, [machineId]: 0.0 }, // Immediately set UI risk to 0
+    })),
 }))
 
 export default useTelemetryStore

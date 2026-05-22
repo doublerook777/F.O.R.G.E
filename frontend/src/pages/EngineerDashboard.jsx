@@ -1,7 +1,7 @@
 // pages/EngineerDashboard.jsx — Primary Engineer View
 // Full-featured: 3D Digital Twin + Live Metrics + Risk Gauge + Alert Log + Fault Controls
 
-import { useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../state/authStore'
 import useTelemetryStore from '../state/telemetryStore'
@@ -14,30 +14,31 @@ import MachineCard from '../components/MachineCard'
 import RiskGauge from '../components/RiskGauge'
 import AIAlertLog from '../components/AIAlertLog'
 import ControlPanel from '../components/ControlPanel'
-import ProfileMenu from '../components/ProfileMenu'
-import { Activity } from 'lucide-react'
+import TweakPanel from '../components/TweakPanel'
+import TweekToast from '../components/TweekToast'
+import Header from '../components/Header'
+import TelemetryChart from '../components/TelemetryChart'
 
 // ── Connection status indicator ──────────────────────────────────────────────
 function StatusDot({ machineId }) {
   const status = useTelemetryStore((s) => s.connectionStatus[machineId] || 'disconnected')
   const configs = {
-    connected:    { color: '#10b981', label: 'LIVE',         blink: true  },
-    connecting:   { color: '#f59e0b', label: 'CONNECTING..', blink: false },
-    error:        { color: '#ef4444', label: 'CONN ERROR',   blink: true  },
-    disconnected: { color: '#475569', label: 'OFFLINE',      blink: false },
+    connected:    { color: '#81c995', label: 'LIVE',         blink: true  },
+    connecting:   { color: '#fdd663', label: 'CONNECTING..', blink: false },
+    error:        { color: '#ee675c', label: 'CONN ERROR',   blink: true  },
+    disconnected: { color: '#9aa0a6', label: 'OFFLINE',      blink: false },
   }
   const cfg = configs[status] || configs.disconnected
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <div
-        className="w-2 h-2 rounded-full"
+        className="w-1.5 h-1.5 rounded-full"
         style={{
           background: cfg.color,
-          boxShadow: `0 0 6px ${cfg.color}`,
           animation: cfg.blink ? 'blink 1.4s ease-in-out infinite' : 'none',
         }}
       />
-      <span className="text-xs font-mono font-bold" style={{ color: cfg.color }}>
+      <span className="text-[10px] font-bold tracking-wider" style={{ color: cfg.color }}>
         {cfg.label}
       </span>
     </div>
@@ -50,16 +51,16 @@ function MachineTab({ machine, isActive, onClick }) {
     <button
       id={`machine-tab-${machine.machine_id}`}
       onClick={onClick}
-      className={`flex flex-col px-4 py-2.5 rounded-xl border transition-all duration-200 text-left
+      className={`ripple flex flex-col px-4 py-2 rounded-xl border transition-all duration-200 text-left cursor-pointer
         ${isActive
-          ? 'border-blue-500/50 bg-blue-500/10 text-blue-300'
-          : 'border-slate-700/40 bg-slate-800/20 text-slate-500 hover:border-slate-600 hover:text-slate-300'
+          ? 'bg-[rgba(138,180,248,0.08)] text-[#8ab4f8] border-[rgba(138,180,248,0.25)] shadow-sm'
+          : 'bg-[#202124] text-[#9aa0a6] border-transparent hover:bg-[#3c4043] hover:text-[#e8eaed]'
         }`}
     >
-      <span className="text-xs font-bold font-mono tracking-wider">
+      <span className="text-xs font-bold tracking-wide">
         {machine.name}
       </span>
-      <span className="text-xs font-mono opacity-60">{machine.location}</span>
+      <span className="text-[10px] font-medium opacity-70 mt-0.5">{machine.location.replace('—', '—')}</span>
     </button>
   )
 }
@@ -68,48 +69,111 @@ function MachineTab({ machine, isActive, onClick }) {
 function MachineStreamConsumer({ machineId, machineType }) {
   const { dataRef } = useSSEStream(machineId)
   const riskScore   = useTelemetryStore((s) => s.riskScores[machineId] || 0)
+  const lastCleared = useTelemetryStore((s) => s.lastClearedAt[machineId])
+  const [historyData, setHistoryData] = useState([])
+
+  // Immediately flush chart history and telemetry ref risk metrics on repair or machine transition
+  useEffect(() => {
+    setHistoryData([])
+    if (dataRef.current) {
+      dataRef.current.risk_score = 0.0
+    }
+  }, [lastCleared, machineId, dataRef])
+
+  useEffect(() => {
+    // 1 Hz Throttled Sampler to push data from dataRef to the Recharts history list
+    const interval = setInterval(() => {
+      const cur = dataRef.current
+      if (!cur || cur.timestamp === null) return
+
+      const formatTime = (ts) => {
+        if (!ts) return ''
+        const date = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts)
+        return date.toLocaleTimeString('en-US', {
+          hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
+        })
+      }
+
+      const newSample = {
+        timestamp: formatTime(cur.timestamp),
+        rpm: Math.round(cur.rpm),
+        temperature: Number(cur.temperature.toFixed(1)),
+        vibration: Number(cur.vibration.toFixed(3)),
+        current: Number(cur.current.toFixed(2)),
+      }
+
+      setHistoryData((prev) => {
+        const updated = [...prev, newSample]
+        if (updated.length > 30) {
+          return updated.slice(updated.length - 30)
+        }
+        return updated
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [dataRef])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-up">
-      {/* Left: 3D Digital Twin */}
-      <div
-        className="lg:col-span-1 glass rounded-2xl overflow-hidden relative"
-        style={{ minHeight: 300 }}
-      >
-        <div className="absolute top-3 left-3 z-10 glass px-2 py-1 rounded-lg">
-          <span className="text-xs font-mono text-slate-400">DIGITAL TWIN</span>
-        </div>
-        <div className="absolute top-3 right-3 z-10">
-          <StatusDot machineId={machineId} />
-        </div>
-        <Suspense fallback={
-          <div className="h-full flex items-center justify-center text-slate-600 text-xs font-mono">
-            Loading 3D engine...
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-fade-up flex-1 min-h-0">
+      {/* Left: 3D Digital Twin & Telemetry Chart */}
+      <div className="lg:col-span-1 flex flex-col gap-3 h-full min-h-0">
+        <div
+          className="flex-1 glass rounded-2xl overflow-hidden relative flex flex-col bg-[#303134] border border-[#3c4043] shadow-md min-h-[250px]"
+        >
+          <div className="absolute top-4 left-4 z-10 bg-[#202124] px-3.5 py-1.5 rounded-xl border border-[#3c4043] shadow-sm select-none">
+            <span className="text-[9px] font-bold text-[#e8eaed] tracking-wider uppercase">Digital Twin Simulation</span>
           </div>
-        }>
-          <Scene dataRef={dataRef} machineType={machineType} />
-        </Suspense>
+          <div className="absolute top-4 right-4 z-10 bg-[#202124] px-3.5 py-1.5 rounded-xl border border-[#3c4043] shadow-sm select-none">
+            <StatusDot machineId={machineId} />
+          </div>
+          <Suspense fallback={
+            <div className="h-full flex items-center justify-center text-[#9aa0a6] text-xs animate-pulse">
+              Loading 3D Engine...
+            </div>
+          }>
+            <Scene dataRef={dataRef} machineType={machineType} />
+          </Suspense>
+        </div>
+
+        {/* Dynamic Telemetry Chart */}
+        <div className="shrink-0">
+          <TelemetryChart data={historyData} height={160} />
+        </div>
       </div>
 
-      {/* Center: Metrics + Risk */}
-      <div className="flex flex-col gap-4">
+      {/* Center: Metrics + Controls */}
+      <div className="flex flex-col gap-3 h-full overflow-y-auto min-h-0 pr-1">
         {/* Risk gauge */}
-        <div className="glass rounded-2xl p-4 flex flex-col items-center gap-2">
-          <span className="text-xs font-mono font-bold tracking-widest text-slate-400">
+        <div className="glass bg-[#303134] border border-[#3c4043] rounded-2xl p-4 flex flex-col items-center gap-3 shrink-0 shadow-md">
+          <span className="text-[9px] font-bold tracking-wider text-[#9aa0a6] uppercase bg-[#202124] px-2.5 py-1 rounded-full border border-[#3c4043]">
             ML RISK ASSESSMENT
           </span>
           <RiskGauge score={riskScore} machineId={machineId} />
         </div>
 
         {/* Live metric cards */}
-        <MachineCard dataRef={dataRef} machineId={machineId} />
+        <div className="shrink-0">
+          <MachineCard dataRef={dataRef} machineId={machineId} />
+        </div>
+
+        {/* Tweak Panel */}
+        <div className="shrink-0 mt-1">
+          <TweakPanel machineId={machineId} />
+        </div>
+
+        {/* Control Panel */}
+        <div className="shrink-0 mt-1">
+          <ControlPanel machineId={machineId} />
+        </div>
       </div>
 
-      {/* Right: Alert log + Controls */}
-      <div className="flex flex-col gap-4">
+      {/* Right: Alert log */}
+      <div className="flex flex-col h-full min-h-0">
         <AIAlertLog machineId={machineId} />
-        <ControlPanel machineId={machineId} />
       </div>
+
+      <TweekToast machineId={machineId} />
     </div>
   )
 }
@@ -117,7 +181,7 @@ function MachineStreamConsumer({ machineId, machineType }) {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function EngineerDashboard() {
   const navigate        = useNavigate()
-  const { user, logout, token } = useAuthStore()
+  const { token } = useAuthStore()
   const activeMachineId = useTelemetryStore((s) => s.activeMachineId)
   const setActiveMachine = useTelemetryStore((s) => s.setActiveMachine)
   const machines         = useTelemetryStore((s) => s.machines)
@@ -151,48 +215,14 @@ export default function EngineerDashboard() {
   const activeMachine = machines.find((m) => m.machine_id === activeMachineId)
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      {/* ── Top Navigation Bar ──────────────────────────────────────── */}
-      <header className="glass border-b border-slate-800/60 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8, #0e7490)' }}>
-              <Activity className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight text-white">F.O.R.G.E</h1>
-              <p className="text-xs font-mono text-slate-600" style={{ fontSize: 9 }}>
-                ENGINEER DASHBOARD
-              </p>
-            </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-1 pl-6 border-l border-slate-800/60">
-            <button onClick={() => navigate('/components')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">COMPONENTS</button>
-            <button onClick={() => navigate('/engineer')} className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 font-mono text-xs font-bold border border-blue-500/20">ENGINEER</button>
-            <button onClick={() => navigate('/operator')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">OPERATOR</button>
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {/* Alert badge */}
-          {unreadCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-blink" />
-              <span className="text-xs font-bold text-red-400 font-mono">{unreadCount} ALERT{unreadCount !== 1 ? 'S' : ''}</span>
-            </div>
-          )}
-
-          {/* User info & Machine Status */}
-          <ProfileMenu />
-        </div>
-      </header>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+      <Header />
 
       {/* ── Main Content ────────────────────────────────────────────── */}
-      <main className="flex-1 p-6 flex flex-col gap-5">
+      <main className="flex-1 p-3 flex flex-col gap-3 max-w-[1800px] w-full mx-auto min-h-0">
         {/* Machine selector tabs */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-mono font-bold text-slate-500 tracking-widest">MACHINES:</span>
+        <div className="flex items-center gap-4 flex-wrap bg-slate-900/30 p-3 rounded-2xl border border-slate-800/60 shadow-inner shrink-0">
+          <span className="text-[10px] font-mono font-bold text-slate-500 tracking-widest ml-2">MACHINES:</span>
           {machines.map((m) => (
             <MachineTab
               key={m.machine_id}

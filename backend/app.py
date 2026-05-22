@@ -37,11 +37,7 @@ from routes.control_routes import control_bp
 from routes.alert_routes   import alert_bp
 
 
-def _load_machine_profile(machine_id: str) -> dict:
-    mapping      = {"cnc_mill_01": "mill.json", "lathe_02": "lathe.json"}
-    profiles_dir = Path(__file__).parent / "simulator" / "profiles"
-    with open(profiles_dir / mapping[machine_id]) as f:
-        return _json.load(f)
+from simulator.generator import get_all_profiles
 
 
 def create_app() -> Flask:
@@ -60,12 +56,26 @@ def create_app() -> Flask:
     logger.info("Seeding default users...")
     seed_default_users()
 
-    machine_ids = ["cnc_mill_01", "lathe_02"]
-    for mid in machine_ids:
+    # Dynamically load all profiles
+    profiles = get_all_profiles()
+    machine_ids = [p["machine_id"] for p in profiles]
+    
+    profiles_dir = Path(__file__).parent / "simulator" / "profiles"
+
+    for p_meta in profiles:
+        mid = p_meta["machine_id"]
         try:
-            profile = _load_machine_profile(mid)
-            logger.info(f"Warming up ML model for '{mid}' ({os.getenv('ML_WARMUP_SAMPLES', '200')} samples)...")
-            ml_inference.initialize_machine(mid, profile)
+            # Load the full profile (with rpm, temp, etc.) for ML initialization
+            full_profile = None
+            for json_file in profiles_dir.glob("*.json"):
+                data = _json.loads(json_file.read_text(encoding="utf-8"))
+                if data["machine_id"] == mid:
+                    full_profile = data
+                    break
+            
+            if full_profile:
+                logger.info(f"Warming up ML model for '{mid}' ({os.getenv('ML_WARMUP_SAMPLES', '200')} samples)...")
+                ml_inference.initialize_machine(mid, full_profile)
         except Exception as e:
             logger.error(f"ML warm-up FAILED for '{mid}': {e}", exc_info=True)
             sys.exit(1)

@@ -2,8 +2,8 @@ import os
 import json
 import logging
 import time
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger("forge.llm.gemini")
 
@@ -13,10 +13,17 @@ def init_gemini():
         logger.warning("GEMINI_API_KEY is not set or is using the default placeholder. LLM diagnosis will be disabled.")
         return False
     
-    genai.configure(api_key=api_key)
-    return True
+    try:
+        # Client initialized with API key
+        global _gemini_client
+        _gemini_client = genai.Client(api_key=api_key)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to configure Gemini: {e}")
+        return False
 
 # Initialize on module load
+_gemini_client = None
 _is_ready = init_gemini()
 
 def generate_diagnosis(machine_id: str, risk_score: float, fault_active: str | None, telemetry_window: list[dict]) -> dict | None:
@@ -24,10 +31,8 @@ def generate_diagnosis(machine_id: str, risk_score: float, fault_active: str | N
     Calls the Gemini API to analyze the telemetry window and return a structured JSON diagnosis.
     Returns None if the API key is not configured or if the call fails.
     """
-    if not _is_ready:
+    if not _is_ready or not _gemini_client:
         return None
-
-    model = genai.GenerativeModel('gemini-2.5-flash')
     
     # We enforce JSON output structure in the prompt
     prompt = f"""
@@ -59,12 +64,10 @@ def generate_diagnosis(machine_id: str, risk_score: float, fault_active: str | N
     """
 
     try:
-        response = model.generate_content(
-            prompt,
-            safety_settings={
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            },
-            generation_config=genai.GenerationConfig(
+        response = _gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
             )
         )

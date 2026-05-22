@@ -7,15 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Industrial aesthetic
-        primary: '#1F2937',
-        success: '#10B981',
-        warning: '#F59E0B',
-        danger: '#EF4444',
-        neutral: '#6B7280',
+        // Material Dark Theme Accent
+        primary: '#202124',
+        success: '#81c995',
+        warning: '#fdd663',
+        danger: '#ee675c',
+        neutral: '#9aa0a6',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
     },

@@ -1,24 +1,26 @@
 // components/RiskGauge.jsx — Animated SVG Risk Score Gauge
 // Reads from Zustand (updated at threshold intervals, not every tick).
 
-import { useEffect, useRef } from 'react'
+// No react imports needed
 
 function getRiskClass(score) {
-  if (score >= 85) return { color: '#dc2626', label: 'CRITICAL', cls: 'risk-critical' }
-  if (score >= 70) return { color: '#ef4444', label: 'HIGH',     cls: 'risk-high'     }
-  if (score >= 40) return { color: '#f59e0b', label: 'MEDIUM',   cls: 'risk-medium'   }
-  return               { color: '#10b981', label: 'NORMAL',   cls: 'risk-low'      }
+  if (score >= 85) return { color: '#ee675c', label: 'CRITICAL', cls: 'risk-critical' }
+  if (score >= 70) return { color: '#f28b82', label: 'HIGH',     cls: 'risk-high'     }
+  if (score >= 40) return { color: '#fdd663', label: 'MEDIUM',   cls: 'risk-medium'   }
+  return               { color: '#81c995', label: 'NORMAL',   cls: 'risk-low'      }
 }
 
-export default function RiskGauge({ score = 0, machineId }) {
-  const prevScoreRef = useRef(score)
+export default function RiskGauge({ score = 0 }) {
   const { color, label, cls } = getRiskClass(score)
 
   // SVG arc parameters
   const r           = 52
   const circumf     = 2 * Math.PI * r
   const arcLength   = circumf * 0.75          // 270° arc
-  const dashOffset  = arcLength * (1 - score / 100)
+
+  // Align start points perfectly by utilizing identical constant base offset
+  const baseOffset  = -circumf * 0.125
+  const activeLength = arcLength * (score / 100)
 
   const isCritical = score >= 85
 
@@ -38,10 +40,10 @@ export default function RiskGauge({ score = 0, machineId }) {
           <circle
             cx="70" cy="70" r={r}
             fill="none"
-            stroke="#1e293b"
+            stroke="#3c4043"
             strokeWidth="10"
             strokeDasharray={`${arcLength} ${circumf}`}
-            strokeDashoffset={-circumf * 0.125}
+            strokeDashoffset={baseOffset}
             strokeLinecap="round"
             transform="rotate(135 70 70)"
           />
@@ -49,15 +51,16 @@ export default function RiskGauge({ score = 0, machineId }) {
           <circle
             cx="70" cy="70" r={r}
             fill="none"
-            stroke={color}
+            stroke={score === 0 ? 'transparent' : color}
             strokeWidth="10"
-            strokeDasharray={`${arcLength} ${circumf}`}
-            strokeDashoffset={dashOffset}
+            strokeDasharray={`${activeLength} ${circumf}`}
+            strokeDashoffset={baseOffset}
             strokeLinecap="round"
             transform="rotate(135 70 70)"
             style={{
-              transition: 'stroke-dashoffset 0.4s ease, stroke 0.4s ease',
-              filter: isCritical ? `drop-shadow(0 0 6px ${color})` : 'none',
+              transition: 'stroke-dasharray 0.4s ease, stroke 0.4s ease',
+              filter: isCritical ? `drop-shadow(0 0 8px ${color}44)` : 'none',
+              opacity: score === 0 ? 0 : 1,
             }}
           />
           {/* Score text */}
@@ -68,7 +71,7 @@ export default function RiskGauge({ score = 0, machineId }) {
             fill={color}
             fontSize="22"
             fontWeight="700"
-            fontFamily="'JetBrains Mono', monospace"
+            fontFamily="'Inter', 'Roboto', sans-serif"
             style={{ transition: 'fill 0.4s ease' }}
           >
             {Math.round(score)}%
@@ -77,7 +80,7 @@ export default function RiskGauge({ score = 0, machineId }) {
           <text
             x="70" y="86"
             textAnchor="middle"
-            fill="#64748b"
+            fill="#9aa0a6"
             fontSize="9"
             fontFamily="'Inter', sans-serif"
             letterSpacing="2"
@@ -89,7 +92,7 @@ export default function RiskGauge({ score = 0, machineId }) {
 
       {/* Status badge */}
       <div
-        className={`px-3 py-1 rounded-full text-xs font-bold tracking-widest font-mono border ${cls}`}
+        className={`px-4 py-1.5 rounded-full text-[11px] font-semibold tracking-wider border ${cls}`}
         style={{
           background: `${color}18`,
           borderColor: `${color}40`,

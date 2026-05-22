@@ -11,28 +11,28 @@ const METRIC_CONFIGS = {
     unit: 'RPM',
     icon: Settings,
     decimals: 0,
-    color: '#3b82f6',
+    color: '#8ab4f8',
   },
   temperature: {
     label: 'TEMPERATURE',
     unit: '°C',
     icon: Thermometer,
     decimals: 1,
-    color: '#f59e0b',
+    color: '#fdd663',
   },
   vibration: {
     label: 'VIBRATION',
     unit: 'g',
     icon: Activity,
     decimals: 3,
-    color: '#14b8a6',
+    color: '#81c995',
   },
   current: {
     label: 'CURRENT DRAW',
     unit: 'A',
     icon: Zap,
     decimals: 2,
-    color: '#a855f7',
+    color: '#c58af9',
   },
 }
 
@@ -69,46 +69,48 @@ function MetricDisplay({ sensorKey, dataRef }) {
 
   return (
     <div
-      className="glass rounded-xl p-4 flex flex-col gap-2"
-      style={{ borderColor: `${cfg.color}22` }}
+      className="rounded-2xl p-4 flex flex-col justify-between shadow-md transition-all duration-200 hover:shadow-lg glass ripple"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `3px solid var(--color-${sensorKey})` }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold tracking-widest font-mono" style={{ color: cfg.color }}>
-          {cfg.label}
-        </span>
-        <span className="text-base flex items-center justify-center">
-          <Icon size={18} color={cfg.color} />
-        </span>
-      </div>
+      <div className="flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2">
+          <span className="text-[10px] font-semibold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>
+            {cfg.label}
+          </span>
+          <span className="flex items-center justify-center p-1.5 rounded-lg" style={{ background: `${cfg.color}15` }}>
+            <Icon size={14} color={cfg.color} />
+          </span>
+        </div>
 
-      {/* Value */}
-      <div className="flex items-end gap-1">
-        <span
-          ref={valRef}
-          className="font-mono font-bold leading-none"
-          style={{ fontSize: '1.75rem', color: cfg.color }}
-        >
-          0
-        </span>
-        <span className="text-xs font-mono mb-1" style={{ color: `${cfg.color}88` }}>
-          {cfg.unit}
-        </span>
+        {/* Value */}
+        <div className="flex items-baseline gap-1.5">
+          <span
+            ref={valRef}
+            className="font-sans font-bold tracking-tight"
+            style={{ fontSize: '1.75rem', color: 'var(--text-primary)', lineHeight: 1 }}
+          >
+            0
+          </span>
+          <span className="text-[11px] font-medium" style={{ color: '#9aa0a6' }}>
+            {cfg.unit}
+          </span>
+        </div>
       </div>
 
       {/* Activity bar */}
-      <div className="h-1.5 rounded-full" style={{ background: `${cfg.color}18` }}>
+      <div className="h-1 rounded-full mt-4" style={{ background: `${cfg.color}15` }}>
         <div
           ref={barRef}
           className="h-full rounded-full transition-none"
-          style={{ width: '0%', background: cfg.color, transition: 'width 0.1s linear' }}
+          style={{ width: '0%', background: `var(--color-${sensorKey})` }}
         />
       </div>
     </div>
   )
 }
 
-export default function MachineCard({ dataRef, machineName, machineId }) {
+export default function MachineCard({ dataRef }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-3">

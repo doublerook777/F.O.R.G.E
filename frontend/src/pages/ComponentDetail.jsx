@@ -10,30 +10,32 @@ import MachineCard from '../components/MachineCard'
 import RiskGauge from '../components/RiskGauge'
 import AIAlertLog from '../components/AIAlertLog'
 import ControlPanel from '../components/ControlPanel'
-import ProfileMenu from '../components/ProfileMenu'
-import { Activity, ArrowLeft } from 'lucide-react'
+import TweakPanel from '../components/TweakPanel'
+import Header from '../components/Header'
+import TweekToast from '../components/TweekToast'
+import TelemetryChart from '../components/TelemetryChart'
+import { ArrowLeft } from 'lucide-react'
 
 // ── Connection status indicator
 function StatusDot({ machineId }) {
   const status = useTelemetryStore((s) => s.connectionStatus[machineId] || 'disconnected')
   const configs = {
-    connected:    { color: '#10b981', label: 'LIVE',         blink: true  },
-    connecting:   { color: '#f59e0b', label: 'CONNECTING..', blink: false },
-    error:        { color: '#ef4444', label: 'CONN ERROR',   blink: true  },
-    disconnected: { color: '#475569', label: 'OFFLINE',      blink: false },
+    connected:    { color: '#81c995', label: 'LIVE',         blink: true  },
+    connecting:   { color: '#fdd663', label: 'CONNECTING..', blink: false },
+    error:        { color: '#ee675c', label: 'CONN ERROR',   blink: true  },
+    disconnected: { color: '#9aa0a6', label: 'OFFLINE',      blink: false },
   }
   const cfg = configs[status] || configs.disconnected
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <div
-        className="w-2 h-2 rounded-full"
+        className="w-1.5 h-1.5 rounded-full"
         style={{
           background: cfg.color,
-          boxShadow: `0 0 6px ${cfg.color}`,
           animation: cfg.blink ? 'blink 1.4s ease-in-out infinite' : 'none',
         }}
       />
-      <span className="text-xs font-mono font-bold" style={{ color: cfg.color }}>
+      <span className="text-[10px] font-bold tracking-wider" style={{ color: cfg.color }}>
         {cfg.label}
       </span>
     </div>
@@ -43,44 +45,114 @@ function StatusDot({ machineId }) {
 function SimulationView({ machine }) {
   const { dataRef } = useSSEStream(machine.machine_id)
   const riskScore   = useTelemetryStore((s) => s.riskScores[machine.machine_id] || 0)
+  const lastCleared = useTelemetryStore((s) => s.lastClearedAt[machine.machine_id])
+  const [historyData, setHistoryData] = useState([])
+
+  // Immediately flush chart history and telemetry ref risk metrics on repair or machine transition
+  useEffect(() => {
+    setHistoryData([])
+    if (dataRef.current) {
+      dataRef.current.risk_score = 0.0
+    }
+  }, [lastCleared, machine.machine_id, dataRef])
+
+  useEffect(() => {
+    // 1 Hz Throttled Sampler to push data from dataRef to the Recharts history list
+    const interval = setInterval(() => {
+      const cur = dataRef.current
+      if (!cur || cur.timestamp === null) return
+
+      const formatTime = (ts) => {
+        if (!ts) return ''
+        const date = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts)
+        return date.toLocaleTimeString('en-US', {
+          hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
+        })
+      }
+
+      const newSample = {
+        timestamp: formatTime(cur.timestamp),
+        rpm: Math.round(cur.rpm),
+        temperature: Number(cur.temperature.toFixed(1)),
+        vibration: Number(cur.vibration.toFixed(3)),
+        current: Number(cur.current.toFixed(2)),
+      }
+
+      setHistoryData((prev) => {
+        const updated = [...prev, newSample]
+        if (updated.length > 30) {
+          return updated.slice(updated.length - 30)
+        }
+        return updated
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [dataRef])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-up">
-      {/* Left: Massive 3D Digital Twin (Takes up 2 columns) */}
-      <div
-        className="lg:col-span-2 glass rounded-2xl overflow-hidden relative shadow-2xl"
-        style={{ minHeight: 500 }}
-      >
-        <div className="absolute top-4 left-4 z-10 glass px-3 py-1.5 rounded-lg border border-slate-700/50">
-          <span className="text-xs font-mono font-bold text-slate-300">{machine.name} — DIGITAL TWIN</span>
-        </div>
-        <div className="absolute top-4 right-4 z-10 glass px-3 py-1.5 rounded-lg border border-slate-700/50">
-          <StatusDot machineId={machine.machine_id} />
-        </div>
-        <Suspense fallback={
-          <div className="h-full flex items-center justify-center text-slate-500 font-mono text-sm animate-pulse">
-            Loading Physics Engine & 3D Assets...
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-fade-up flex-1 min-h-0 h-full">
+      {/* Left: Massive 3D Digital Twin & Telemetry Chart */}
+      <div className="lg:col-span-2 flex flex-col gap-3 h-full min-h-0">
+        <div
+          className="flex-1 glass rounded-2xl overflow-hidden relative shadow-md flex flex-col border min-h-[250px]"
+          style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
+        >
+          <div 
+            className="absolute top-4 left-4 z-10 px-3.5 py-1.5 rounded-xl border shadow-sm select-none"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
+            <span className="text-[9px] font-bold text-[#e8eaed] tracking-wider uppercase">{machine.name} — Digital Twin</span>
           </div>
-        }>
-          <Scene dataRef={dataRef} machineType={machine.type} />
-        </Suspense>
+          <div 
+            className="absolute top-4 right-4 z-10 px-3.5 py-1.5 rounded-xl border shadow-sm select-none"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
+            <StatusDot machineId={machine.machine_id} />
+          </div>
+          <Suspense fallback={
+            <div className="h-full flex items-center justify-center text-[#9aa0a6] text-xs animate-pulse">
+              Loading Physics Engine & 3D Assets...
+            </div>
+          }>
+            <Scene dataRef={dataRef} machineType={machine.type} />
+          </Suspense>
+        </div>
+
+        {/* Historical Time-Series Chart */}
+        <div className="shrink-0">
+          <TelemetryChart data={historyData} height={180} />
+        </div>
       </div>
 
-      {/* Center: Live Metrics & Risk */}
-      <div className="lg:col-span-1 flex flex-col gap-6">
-        <div className="glass rounded-2xl p-6 flex flex-col items-center gap-4">
-          <span className="text-xs font-mono font-bold tracking-widest text-slate-400">
+      {/* Center: Live Metrics, Risk & Controls */}
+      <div className="lg:col-span-1 flex flex-col gap-3 h-full overflow-y-auto min-h-0 pr-1">
+        <div 
+          className="glass rounded-2xl p-4 flex flex-col items-center gap-3 shrink-0 shadow-md border"
+          style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
+        >
+          <span 
+            className="text-[9px] font-bold tracking-wider text-[#9aa0a6] uppercase px-2.5 py-1 rounded-full border"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
             ML RISK ASSESSMENT
           </span>
           <RiskGauge score={riskScore} machineId={machine.machine_id} />
         </div>
-        <MachineCard dataRef={dataRef} machineId={machine.machine_id} />
+        <div className="shrink-0">
+          <MachineCard dataRef={dataRef} machineId={machine.machine_id} />
+        </div>
+        <div className="shrink-0 mt-1">
+          <TweakPanel machineId={machine.machine_id} />
+        </div>
+        <div className="shrink-0 mt-1">
+          <ControlPanel machineId={machine.machine_id} />
+        </div>
       </div>
 
-      {/* Right: AI Alert Log & Controls */}
-      <div className="lg:col-span-1 flex flex-col gap-6">
+      {/* Right: AI Alert Log */}
+      <div className="lg:col-span-1 flex flex-col h-full min-h-0">
         <AIAlertLog machineId={machine.machine_id} />
-        <ControlPanel machineId={machine.machine_id} />
       </div>
     </div>
   )
@@ -111,59 +183,39 @@ export default function ComponentDetail() {
         }
       }
       loadMeta()
-    } else {
-      setLoading(false)
     }
   }, [machines.length, setMachines])
 
   const machine = machines.find((m) => m.machine_id === id)
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      {/* Header */}
-      <header className="glass border-b border-slate-800/60 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8, #0e7490)' }}>
-              <Activity className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight text-white">F.O.R.G.E</h1>
-              <p className="text-xs font-mono text-slate-600" style={{ fontSize: 9 }}>SIMULATION VIEW</p>
-            </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center gap-1 pl-6 border-l border-slate-800/60">
-            <button onClick={() => navigate('/components')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">COMPONENTS</button>
-            <button onClick={() => navigate('/engineer')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">ENGINEER</button>
-            <button onClick={() => navigate('/operator')} className="px-3 py-1.5 rounded-lg text-slate-400 font-mono text-xs hover:bg-slate-800/50 hover:text-slate-200 transition-colors">OPERATOR</button>
-          </nav>
-        </div>
-        <ProfileMenu />
-      </header>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+      <Header />
 
       {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8">
-        <div className="max-w-[1600px] mx-auto">
+      <main className="flex-1 p-3 flex flex-col min-h-0">
+        <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full gap-3">
           <button 
             onClick={() => navigate('/components')}
-            className="flex items-center gap-2 text-slate-400 hover:text-blue-400 text-sm font-mono font-bold mb-6 transition-colors group w-max"
+            className="flex items-center gap-2 text-[#9aa0a6] hover:text-[#8ab4f8] text-[10px] font-bold tracking-wider uppercase transition-colors group w-max shrink-0 cursor-pointer select-none"
           >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            BACK TO FLEET
+            <ArrowLeft size={13} className="group-hover:-translate-x-0.5 transition-transform" />
+            Back to Fleet
           </button>
 
           {loading ? (
-            <div className="text-center py-20 text-slate-500 font-mono animate-pulse">
+            <div className="flex-1 flex items-center justify-center text-[#9aa0a6] text-xs animate-pulse">
               Loading component data...
             </div>
           ) : !machine ? (
-            <div className="text-center py-20 text-red-400 font-mono">
+            <div className="flex-1 flex items-center justify-center text-red-400 font-mono">
               Component not found.
             </div>
           ) : (
-            <SimulationView machine={machine} />
+            <>
+              <SimulationView machine={machine} />
+              <TweekToast machineId={machine.machine_id} />
+            </>
           )}
         </div>
       </main>

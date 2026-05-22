@@ -39,6 +39,8 @@ export const machinesAPI = {
   status:       (machineId)  => api.get(`/api/control/${machineId}/status`),
   injectFault:  (machineId, fault) => api.post(`/api/control/${machineId}/inject-fault`, { fault }),
   clearFault:   (machineId)  => api.post(`/api/control/${machineId}/clear-fault`),
+  tweakProfile: (id, tweaks) => api.put(`/api/control/${id}/tweak`, tweaks),
+  retrain:      (machineId)  => api.post(`/api/control/${machineId}/retrain`),
 }
 
 export const alertsAPI = {

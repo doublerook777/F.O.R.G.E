@@ -18,12 +18,21 @@ logger = logging.getLogger("forge.simulator.generator")
 # Registry: machine_id -> active FaultInjector instance
 _fault_injectors: dict[str, FaultInjector] = {}
 
+# Registry: machine_id -> active profile dict (for live tweaking)
+_active_profiles: dict[str, dict] = {}
+
+
+def update_live_profile(machine_id: str, new_profile: dict):
+    """Dynamically update the profile running in the simulator."""
+    if machine_id in _active_profiles:
+        _active_profiles[machine_id].update(new_profile)
+        logger.info(f"Live profile updated for '{machine_id}'.")
 
 def _load_profile(profile_filename: str) -> dict:
     """Load a machine profile JSON from the profiles/ directory."""
     profiles_dir = Path(__file__).parent / "profiles"
     path = profiles_dir / profile_filename
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -33,13 +42,8 @@ def get_all_profiles() -> list[dict]:
     machines = []
     for json_file in profiles_dir.glob("*.json"):
         try:
-            profile = json.loads(json_file.read_text())
-            machines.append({
-                "machine_id": profile["machine_id"],
-                "name":       profile["name"],
-                "type":       profile["type"],
-                "location":   profile["location"],
-            })
+            profile = json.loads(json_file.read_text(encoding="utf-8"))
+            machines.append(profile)
         except Exception as e:
             logger.error(f"Failed to load profile {json_file.name}: {e}")
     return machines
@@ -53,15 +57,16 @@ def get_fault_injector(machine_id: str) -> FaultInjector:
 
 
 def _profile_filename_for(machine_id: str) -> str:
-    """Map machine_id to its profile JSON filename."""
-    mapping = {
-        "cnc_mill_01": "mill.json",
-        "lathe_02":    "lathe.json",
-    }
-    if machine_id not in mapping:
-        raise ValueError(f"Unknown machine_id: '{machine_id}'. "
-                         f"Valid IDs: {list(mapping.keys())}")
-    return mapping[machine_id]
+    """Find the filename for a machine_id."""
+    profiles_dir = Path(__file__).parent / "profiles"
+    for json_file in profiles_dir.glob("*.json"):
+        try:
+            profile = json.loads(json_file.read_text(encoding="utf-8"))
+            if profile["machine_id"] == machine_id:
+                return json_file.name
+        except Exception:
+            pass
+    raise ValueError(f"Unknown machine_id: '{machine_id}'.")
 
 
 def telemetry_generator(machine_id: str, hz: float = 10.0) -> Generator[dict, None, None]:
@@ -81,8 +86,12 @@ def telemetry_generator(machine_id: str, hz: float = 10.0) -> Generator[dict, No
         dict: One telemetry snapshot per iteration.
     """
     profile_file = _profile_filename_for(machine_id)
-    profile      = _load_profile(profile_file)
-    injector     = get_fault_injector(machine_id)
+    # Load into active profiles registry if not present
+    if machine_id not in _active_profiles:
+        _active_profiles[machine_id] = _load_profile(profile_file)
+    
+    profile  = _active_profiles[machine_id]
+    injector = get_fault_injector(machine_id)
     interval     = 1.0 / hz
     start_time   = time.monotonic()
 

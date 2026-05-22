@@ -35,34 +35,80 @@ class MachineMLContext:
         self.model      = ForgeIsolationForest()
         self._is_ready  = False
         self._warmup_features: list[np.ndarray] = []
+        self._last_ema_score = 0.0
+        self._ema_alpha = 0.08  # Perfectly balanced smoothing over ~12 samples (1.2 seconds) for fast detection
+        self._sample_count = 0
         logger.info(f"ML context created for '{machine_id}'. "
                     f"Warming up with {WARMUP_SAMPLES} samples...")
         self._run_warmup()
 
     def _run_warmup(self):
         """
-        Generate synthetic normal telemetry and train the Isolation Forest.
-        This runs synchronously at startup so the model is ready before
-        the first SSE client connects.
+        Train the Isolation Forest using adapted HUST bearing normal data
+        or scaled synthetic baseline features.
         """
-        import time
+        from ml_engine.dataset_loader import load_hust_data
+        
+        logger.info(f"[{self.machine_id}] Loading and scaling HUST dataset/fallback normal readings...")
+        raw_samples = load_hust_data(is_anomaly_detection=True, profile=self.profile, limit_files=5)
+        
         collected = []
-        t = 0.0
-        dt = 1.0 / STREAM_HZ  # simulated time step
-
-        while len(collected) < WARMUP_SAMPLES:
-            # Generate a normal (no-fault) reading
-            reading = generate_normal_reading(t, self.profile)
+        for row in raw_samples:
+            reading = {
+                "rpm":         row[0],
+                "temperature": row[1],
+                "vibration":   row[2],
+                "current":     row[3]
+            }
             feature_vec = self.extractor.update(reading)
             if feature_vec is not None:
                 collected.append(feature_vec)
-            t += dt
+
+        if not collected:
+            # Absolute fallback if somehow feature extractor didn't produce enough samples
+            logger.warning(f"[{self.machine_id}] Warmup feature extractor empty! Doing direct fallback...")
+            for i in range(200):
+                t_sec = i * 0.1
+                reading = generate_normal_reading(t_sec, self.profile)
+                feature_vec = self.extractor.update(reading)
+                if feature_vec is not None:
+                    collected.append(feature_vec)
 
         X = np.vstack(collected)
         self.model.fit(X)
         self._is_ready = True
-        logger.info(f"[{self.machine_id}] Isolation Forest trained. "
+        
+        # Reset extractor to clear warmup state and transient boundaries for clean streaming start
+        self.extractor = RollingFeatureExtractor(self.machine_id, window_size=WINDOW_SIZE)
+        
+        logger.info(f"[{self.machine_id}] Isolation Forest trained on {len(X)} localized samples. "
                     f"Feature dim: {X.shape[1]}. Ready for inference.")
+
+    def retrain(self, new_profile: dict):
+        """Clear the old model and retrain on a new baseline profile instantly."""
+        self._is_ready = False
+        self.profile = new_profile
+        self.model = ForgeIsolationForest() # Reset model
+        self._warmup_features = []
+        self._last_ema_score = 0.0
+        self._sample_count = 0
+        logger.info(f"[{self.machine_id}] Baseline tweaked! Retraining ML model...")
+        self._run_warmup()
+
+    def reset_context(self):
+        """Reset rolling feature extractor history and EMA smoothing on fault repair."""
+        self.extractor = RollingFeatureExtractor(self.machine_id, window_size=WINDOW_SIZE)
+        self._last_ema_score = 0.0
+        
+        # Pre-populate the extractor with continuous nominal readings from the physics simulator
+        # to ensure perfect time-series continuity and prevent window size/noise mismatch anomalies
+        start_count = max(0, self._sample_count - WINDOW_SIZE)
+        for i in range(WINDOW_SIZE):
+            t_sec = (start_count + i) * 0.1
+            nominal_reading = generate_normal_reading(t_sec, self.profile)
+            self.extractor.update(nominal_reading)
+            
+        logger.info(f"[{self.machine_id}] ML context rolling features pre-populated and EMA reset to normal.")
 
     def score(self, telemetry: dict) -> float:
         """
@@ -71,10 +117,20 @@ class MachineMLContext:
         Returns:
             float in [0.0, 100.0]. Returns 0.0 during warm-up.
         """
+        self._sample_count += 1
         feature_vec = self.extractor.update(telemetry)
         if feature_vec is None or not self._is_ready:
             return 0.0
-        return self.model.score(feature_vec)
+            
+        raw_score = self.model.score(feature_vec)
+        
+        # Apply Exponential Moving Average (EMA) to completely stabilize the Risk Score
+        if self._last_ema_score == 0.0:
+            self._last_ema_score = raw_score
+        else:
+            self._last_ema_score = (self._ema_alpha * raw_score) + ((1.0 - self._ema_alpha) * self._last_ema_score)
+            
+        return self._last_ema_score
 
     @property
     def is_ready(self) -> bool:
@@ -96,6 +152,24 @@ def initialize_machine(machine_id: str, profile: dict):
         logger.warning(f"ML context for '{machine_id}' already initialized. Skipping.")
         return
     _contexts[machine_id] = MachineMLContext(machine_id, profile)
+
+
+def retrain_machine(machine_id: str, new_profile: dict):
+    """Force an existing ML context to retrain with a new profile."""
+    ctx = _contexts.get(machine_id)
+    if ctx:
+        ctx.retrain(new_profile)
+    else:
+        initialize_machine(machine_id, new_profile)
+
+
+def reset_machine_context(machine_id: str):
+    """Reset the rolling feature extractor and EMA score for a machine when its fault is cleared."""
+    ctx = _contexts.get(machine_id)
+    if ctx:
+        ctx.reset_context()
+    else:
+        logger.warning(f"No ML context found for '{machine_id}' to reset.")
 
 
 def get_risk_score(machine_id: str, telemetry: dict) -> float:

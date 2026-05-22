@@ -7,6 +7,7 @@ import Admin from './pages/Admin'
 import ComponentsDashboard from './pages/ComponentsDashboard'
 import ComponentDetail from './pages/ComponentDetail'
 import NotFound from './pages/NotFound'
+import { useEffect } from 'react'
 import useAuthStore from './state/authStore'
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -19,6 +20,15 @@ function ProtectedRoute({ children, requiredRole }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('forge_theme') || 'cyber-industrial'
+    if (savedTheme === 'cyber-industrial') {
+      document.documentElement.classList.add('theme-cyber-industrial')
+    } else {
+      document.documentElement.classList.remove('theme-cyber-industrial')
+    }
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
