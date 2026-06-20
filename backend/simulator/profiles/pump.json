@@ -1,0 +1,39 @@
+{
+  "machine_id": "pump_05",
+  "name": "Coolant Pump System",
+  "type": "pump",
+  "location": "Utility Room A",
+  "rpm": {
+    "baseline": 1400,
+    "min": 1000,
+    "max": 1800,
+    "oscillation_amplitude": 10,
+    "oscillation_frequency": 0.05,
+    "noise_std": 3.0
+  },
+  "temperature": {
+    "baseline": 50.0,
+    "min": 40.0,
+    "max": 80.0,
+    "oscillation_amplitude": 0.8,
+    "oscillation_frequency": 0.01,
+    "noise_std": 0.15,
+    "drift_rate": 0.0001
+  },
+  "vibration": {
+    "baseline": 0.9,
+    "min": 0.2,
+    "max": 3.0,
+    "oscillation_amplitude": 0.08,
+    "oscillation_frequency": 0.1,
+    "noise_std": 0.03
+  },
+  "current": {
+    "baseline": 8.5,
+    "min": 5.0,
+    "max": 14.0,
+    "oscillation_amplitude": 0.3,
+    "oscillation_frequency": 0.04,
+    "noise_std": 0.1
+  }
+}
